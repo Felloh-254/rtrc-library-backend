@@ -1,14 +1,21 @@
 from fastapi import FastAPI
+from sqlalchemy import text
 
-app = FastAPI(
-    title="RTRC Library API",
-    description="Backend API for RTRC Library Management System",
-    version="1.0.0"
-)
+from app.core.database import engine
+
+app = FastAPI()
 
 
 @app.get("/")
-def root():
+def home():
+    return {"message": "RTRC Library API"}
+
+
+@app.get("/health/database")
+def health_database():
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+
     return {
-        "message": "RTRC Library API is running"
+        "status": "healthy"
     }
