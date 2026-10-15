@@ -1,3 +1,5 @@
+from collections.abc import Generator
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
@@ -5,7 +7,7 @@ from app.core.config import settings
 
 
 engine = create_engine(
-    settings.DATABASE_URL,
+    settings.sqlalchemy_database_url,
 
     pool_size=settings.DB_POOL_SIZE,
 
@@ -32,7 +34,8 @@ class Base(DeclarativeBase):
     pass
 
 
-def get_db():
+def get_db() -> Generator:
+    """Provide one SQLAlchemy session per request and always close it."""
     db = SessionLocal()
 
     try:
