@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.router import router as api_router
 from app.core.config import settings
 from app.core.database import engine
 
@@ -61,7 +62,7 @@ def create_app() -> FastAPI:
                 detail="Database service is currently unavailable.",
             )
 
-    # Register feature routers here as they become available.
+    app.include_router(api_router)
 
     return app
 

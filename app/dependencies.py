@@ -1,5 +1,17 @@
-"""Application-wide FastAPI dependencies."""
+"""Convenient imports for application-wide FastAPI dependencies."""
 
-from app.core.database import get_db
+from app.core.dependencies import (
+    get_current_admin,
+    get_current_superadmin,
+    get_current_user,
+    get_db,
+    require_roles,
+)
 
-__all__ = ["get_db"]
+__all__ = [
+    "get_current_admin",
+    "get_current_superadmin",
+    "get_current_user",
+    "get_db",
+    "require_roles",
+]
