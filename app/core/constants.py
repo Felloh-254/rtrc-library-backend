@@ -5,6 +5,7 @@ DURATION_DAYS = "days"
 # User roles
 ROLE_ADMIN = "admin"
 ROLE_PATRON = "patron"
+ROLE_SUPERADMIN = "superadmin"
 
 # Default pagination
 DEFAULT_PAGE_SIZE = 20
