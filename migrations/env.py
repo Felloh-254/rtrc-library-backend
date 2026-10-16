@@ -18,6 +18,18 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+managed_schemas = {"public", "library", "members", "circulation", "content"}
+
+
+def include_name(name: str | None, type_: str, parent_names: dict[str, str]) -> bool:
+    if type_ == "schema":
+        return name is None or name in managed_schemas
+    if type_ == "table":
+        schema = parent_names.get("schema_name")
+        return schema is None or schema in managed_schemas
+    return True
+
+
 if (
     getattr(config.cmd_opts, "autogenerate", False)
     and not target_metadata.tables
@@ -52,6 +64,9 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_schemas=True,
+        include_name=include_name,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
@@ -72,7 +87,11 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_schemas=True,
+            include_name=include_name,
+            compare_server_default=True,
         )
 
         with context.begin_transaction():
