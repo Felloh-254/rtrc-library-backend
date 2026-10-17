@@ -31,7 +31,24 @@ application requires `SECRET_KEY`, `JWT_SECRET_KEY`, and either `DATABASE_URL`
 or all of `POSTGRES_DB`, `POSTGRES_HOST`, `POSTGRES_USER`, and
 `POSTGRES_PASSWORD`. `POSTGRES_PORT` defaults to `5432`; connection pool
 settings also have defaults. Keep real credentials in `.env`, which is ignored
-by Git.
+by Git. MongoDB remains optional until Mongo-backed features are enabled; when
+configured, the application verifies its connection at startup and closes the
+client at shutdown.
+
+To configure MongoDB with a full connection string:
+
+```dotenv
+MONGO_URI=mongodb+srv://user:password@cluster.example.mongodb.net/
+MONGO_DB=rtrc_library
+```
+
+Alternatively, set `MONGO_CLUSTER` to the MongoDB host (or SRV URI), `MONGO_DB`
+to the database name, and optionally set both `MONGO_USER` and `MONGO_PASS`.
+`MONGO_SERVER_SELECTION_TIMEOUT_MS` controls the connection check timeout and
+defaults to `5000`. `/health/database` reports the status of each configured
+database; it reports MongoDB as `not_configured` when no MongoDB settings are
+provided. Routes can access the selected Mongo database through the
+`get_mongo_db` dependency.
 
 For example, the separate PostgreSQL settings are:
 

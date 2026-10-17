@@ -1,4 +1,4 @@
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     MONGO_PASS: str | None = None
     MONGO_CLUSTER: str | None = None
     MONGO_DB: str | None = None
+    MONGO_SERVER_SELECTION_TIMEOUT_MS: int = 5000
 
     # PostgreSQL
     POSTGRES_DB: str | None = None
@@ -52,6 +53,19 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRES: int = 3600
 
+    @field_validator(
+        "MONGO_URI",
+        "MONGO_USER",
+        "MONGO_PASS",
+        "MONGO_CLUSTER",
+        "MONGO_DB",
+    )
+    @classmethod
+    def normalize_mongo_settings(cls, value: str | None) -> str | None:
+        if value is None or not value.strip():
+            return None
+        return value.strip()
+
     @model_validator(mode="after")
     def validate_database_configuration(self) -> "Settings":
         postgres_fields = (
@@ -65,7 +79,42 @@ class Settings(BaseSettings):
                 "Configure DATABASE_URL or all of POSTGRES_DB, POSTGRES_HOST, "
                 "POSTGRES_USER, and POSTGRES_PASSWORD."
             )
+
+        mongo_fields = (
+            self.MONGO_URI,
+            self.MONGO_USER,
+            self.MONGO_PASS,
+            self.MONGO_CLUSTER,
+            self.MONGO_DB,
+        )
+        if any(value is not None for value in mongo_fields):
+            if self.MONGO_DB is None:
+                raise ValueError("MONGO_DB is required when MongoDB is configured.")
+            if self.MONGO_URI and self.MONGO_CLUSTER:
+                raise ValueError(
+                    "Configure either MONGO_URI or MONGO_CLUSTER, not both."
+                )
+            if self.MONGO_URI and (
+                self.MONGO_USER is not None or self.MONGO_PASS is not None
+            ):
+                raise ValueError(
+                    "Put MongoDB credentials in MONGO_URI or use MONGO_CLUSTER "
+                    "with MONGO_USER and MONGO_PASS."
+                )
+            if not self.MONGO_URI and not self.MONGO_CLUSTER:
+                raise ValueError("Configure MONGO_URI or MONGO_CLUSTER for MongoDB.")
+            if (self.MONGO_USER is None) != (self.MONGO_PASS is None):
+                raise ValueError("Configure both MONGO_USER and MONGO_PASS, or neither.")
+
+        if self.MONGO_SERVER_SELECTION_TIMEOUT_MS < 1:
+            raise ValueError(
+                "MONGO_SERVER_SELECTION_TIMEOUT_MS must be greater than zero."
+            )
         return self
+
+    @property
+    def mongodb_configured(self) -> bool:
+        return self.MONGO_URI is not None or self.MONGO_CLUSTER is not None
 
     @property
     def sqlalchemy_database_url(self) -> str:

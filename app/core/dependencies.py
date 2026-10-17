@@ -1,8 +1,10 @@
 """FastAPI dependencies shared by routes and feature modules."""
 
 from collections.abc import Callable
+from typing import Any
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
+from pymongo.database import Database
 from sqlalchemy.orm import Session
 
 from app.core.constants import ROLE_ADMIN, ROLE_SUPERADMIN
@@ -34,6 +36,16 @@ def get_current_user(
     return user
 
 
+def get_mongo_db(request: Request) -> Database[dict[str, Any]]:
+    database = getattr(request.app.state, "mongo_database", None)
+    if database is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="MongoDB is not configured.",
+        )
+    return database
+
+
 def require_roles(*allowed_roles: str) -> Callable[..., User]:
     def role_dependency(
         current_user: User = Depends(get_current_user),
@@ -56,5 +68,6 @@ __all__ = [
     "get_current_superadmin",
     "get_current_user",
     "get_db",
+    "get_mongo_db",
     "require_roles",
 ]
