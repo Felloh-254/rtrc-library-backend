@@ -38,7 +38,7 @@ def connect_mongodb() -> MongoConnection:
         if cluster is None:
             raise ValueError("MONGO_CLUSTER or MONGO_URI is required for MongoDB.")
         client = MongoClient(
-            cluster,
+            f"mongodb+srv://{cluster}/",
             username=settings.MONGO_USER,
             password=settings.MONGO_PASS,
             **options,
