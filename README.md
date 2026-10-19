@@ -191,7 +191,9 @@ password without replacing the stored name or category. A patron already linked
 to an account cannot be provisioned again.
 
 Passwords must contain 12–128 characters and are stored as salted
-PBKDF2-SHA256 hashes. The existing auth migration adds the `superadmin` role
-and makes patron membership numbers unique; do not apply it to the live
+PBKDF2-SHA256 hashes. Existing bcrypt, Passlib PBKDF2-SHA256, and Werkzeug
+scrypt hashes are accepted and upgraded to the current PBKDF2-SHA256 format
+after a successful login. The existing auth migration adds the `superadmin`
+role and makes patron membership numbers unique; do not apply it to the live
 database until its current roles, duplicate membership numbers, and adoption
 history have been reviewed.

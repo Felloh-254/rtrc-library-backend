@@ -1,12 +1,18 @@
 """Business logic for account creation and password authentication."""
 
+import logging
 from datetime import UTC, datetime
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.constants import ROLE_SUPERADMIN
-from app.core.security import hash_password, verify_password
+from app.core.security import (
+    hash_password,
+    password_hash_needs_rehash,
+    password_hash_scheme,
+    verify_password,
+)
 from app.models.user import Patron, User
 from app.repositories.users import (
     account_exists_by_membership_number,
@@ -16,6 +22,9 @@ from app.repositories.users import (
     has_superadmin,
 )
 from app.schemas.auth import UserCreate
+
+
+logger = logging.getLogger(__name__)
 
 
 class DuplicateMembershipNumberError(Exception):
@@ -35,13 +44,26 @@ def authenticate_user(
     membership_number: str,
     password: str,
 ) -> User:
-    user = get_user_by_membership_number(db, membership_number)
-    if (
-        user is None
-        or user.patron is None
-        or not verify_password(password, user.patron.password_hash)
-    ):
+    normalized_membership_number = membership_number.strip()
+    user = get_user_by_membership_number(db, normalized_membership_number)
+    if user is None:
+        logger.warning("Login rejected: no active account matched the membership number")
         raise InvalidCredentialsError
+    if user.patron is None:
+        logger.error("Login rejected: account %s has no patron profile", user.id)
+        raise InvalidCredentialsError
+
+    stored_hash = user.patron.password_hash
+    if not verify_password(password, stored_hash):
+        logger.warning(
+            "Login rejected: password verification failed for account %s "
+            "(wrong password or unsupported stored hash; stored format: %s)",
+            user.id,
+            password_hash_scheme(stored_hash),
+        )
+        raise InvalidCredentialsError
+    if stored_hash is not None and password_hash_needs_rehash(stored_hash):
+        user.patron.password_hash = hash_password(password)
 
     user.last_login = datetime.now(UTC)
     db.commit()

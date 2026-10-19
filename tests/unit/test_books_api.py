@@ -2,11 +2,12 @@
 
 import unittest
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from app.api.v1.books.routes import router as books_router
 from app.core.dependencies import get_current_admin, get_current_user
 from app.models.book import Book
+from app.models.user import Role, User
 from app.schemas.book import BookCopyCreate, BookCopyUpdate, BookCreate
 
 
@@ -56,6 +57,21 @@ class BookApiTests(unittest.TestCase):
                     dependency.call for dependency in route.dependant.dependencies
                 }
                 self.assertIn(get_current_user, dependency_calls)
+
+    def test_admin_dependency_rejects_patron_and_accepts_admin_roles(self) -> None:
+        def user_with_role(role_name: str) -> User:
+            return User(role=Role(name=role_name))
+
+        with self.assertRaises(HTTPException) as raised:
+            get_current_admin(current_user=user_with_role("patron"))
+        self.assertEqual(raised.exception.status_code, 403)
+
+        for role_name in ("admin", "superadmin"):
+            admin_user = user_with_role(role_name)
+            self.assertIs(
+                get_current_admin(current_user=admin_user),
+                admin_user,
+            )
 
     def test_request_lengths_and_copy_update_match_the_model(self) -> None:
         self.assertEqual(Book.__table__.c.book_title.type.length, 255)
