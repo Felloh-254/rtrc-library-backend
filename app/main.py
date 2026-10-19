@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.responses import JSONResponse
 from pymongo.errors import PyMongoError
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
@@ -10,14 +11,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api.router import router as api_router
 from app.core.config import settings
 from app.core.database import engine
+from app.core.logging import configure_logging
 from app.core.mongo import connect_mongodb
 
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-)
-
+configure_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -48,6 +45,22 @@ def create_app() -> FastAPI:
         version="1.0.0",
         lifespan=lifespan,
     )
+
+    @app.exception_handler(Exception)
+    async def log_unhandled_exception(
+        request: Request,
+        exc: Exception,
+    ) -> JSONResponse:
+        logger.error(
+            "Unhandled error while processing %s %s",
+            request.method,
+            request.url.path,
+            exc_info=(type(exc), exc, exc.__traceback__),
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal server error"},
+        )
 
     @app.get("/", tags=["General"])
     def home():

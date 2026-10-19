@@ -114,6 +114,53 @@ The API is available at `http://127.0.0.1:8000`, with interactive docs at
 connectivity. Uploaded files go into the configured `UPLOAD_FOLDER` (default:
 `uploads/`).
 
+#### Trying the books API in Swagger
+
+The books API uses both PostgreSQL for physical copies and MongoDB for book
+metadata, so configure and run both databases before testing these endpoints.
+Open `/docs`, use **Authorize** to sign in with an admin or superadmin
+membership number and password, and then try these routes in order:
+
+1. `GET /api/v1/books/metadata/{isbn}` looks up metadata in MongoDB, or fetches
+   it from Google Books and caches it. For example, try ISBN
+   `9780306406157`.
+2. `POST /api/v1/books/copies` adds a physical copy. Use a unique
+   `account_number`, the same ISBN, an ISO date, and an acquisition method:
+
+   ```json
+   {
+     "account_number": "BOOK-00001",
+     "isbn": "9780306406157",
+     "acquisition_date": "2026-10-19T12:00:00",
+     "acquisition_method": "Purchase",
+     "condition": "Good",
+     "shelf_location": "A1",
+     "status": "Available"
+   }
+   ```
+
+3. `GET /api/v1/books` lists metadata with physical-copy counts.
+   `GET /api/v1/books/{isbn}` returns the metadata and individual copies.
+4. `PUT /api/v1/books/copies/{book_id}` edits a copy. Set `book_id` in the path
+   to the ID returned by the details endpoint. The request body accepts
+   `acquisition_date`, `acquisition_method`, `shelf_location`, `condition`, and
+   `status`; the copy ID itself is not editable.
+
+All books routes require a valid bearer token. Listing, metadata lookup, and
+details are available to any authenticated user; adding and updating copies
+require an admin or superadmin. Invalid request fields are described in the
+Swagger request schemas.
+
+No books migration is needed for this API wiring: the existing `Book` model's
+columns and constraints match the `library.books` table defined in migration
+`0001_legacy_postgres_schema`. Route, service, and request/response schema
+changes do not alter the database structure.
+
+Application logs are written to the server console with a timestamp, severity,
+and module name. Use `logging.getLogger(__name__)` in application modules;
+`logger.exception(...)` inside an exception handler records the traceback.
+Unexpected API exceptions are logged and returned as a generic HTTP 500 response.
+
 ### Authentication
 
 Do not apply migrations to an existing database until the adoption plan above

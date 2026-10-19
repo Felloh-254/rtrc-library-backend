@@ -1,18 +1,20 @@
 """FastAPI dependencies shared by routes and feature modules."""
 
+import re
+
 from collections.abc import Callable
 from typing import Any
 
 from fastapi import Depends, HTTPException, Request, status
 from pymongo.database import Database
 from sqlalchemy.orm import Session
+from pymongo.collection import Collection
 
 from app.core.constants import ROLE_ADMIN, ROLE_SUPERADMIN
 from app.core.database import get_db
 from app.core.security import decode_access_token, oauth2_scheme
 from app.models.user import User
 from app.repositories.users import get_user_by_id
-
 
 def get_current_user(
     token: str = Depends(oauth2_scheme),
@@ -44,6 +46,29 @@ def get_mongo_db(request: Request) -> Database[dict[str, Any]]:
             detail="MongoDB is not configured.",
         )
     return database
+
+
+def get_mongo_books_collection(
+    database: Database[dict[str, Any]] = Depends(get_mongo_db),
+) -> Collection[dict[str, Any]]:
+    """Return the initialized MongoDB books collection."""
+    return database["books"]
+
+
+def normalize_isbn_value(isbn) -> str | None:
+    """Normalize ISBN for matching across MongoDB and PostgreSQL."""
+    if not isbn:
+        return None
+    return ''.join(ch for ch in str(isbn).strip() if ch.isalnum())
+
+
+def build_isbn_regex(isbn) -> str | None:
+    """Build a regex that tolerates separators in stored ISBNs."""
+    normalized = normalize_isbn_value(isbn)
+    if not normalized:
+        return None
+    return '^' + '[^0-9A-Za-z]*'.join(re.escape(ch) for ch in normalized) + '$'
+
 
 
 def require_roles(*allowed_roles: str) -> Callable[..., User]:
